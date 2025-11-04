@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atendimento - Geração de Senha</title>
+<style>
+  body {
+    font-family: 'Arial Black', sans-serif;
+    background-color: #000;
+    color: #CCFF00;
+    text-align: center;
+    padding: 30px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+  }
+
+  .logo {
+    width: 120px;
+    height: 120px;
+    background-color: #222;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #CCFF00;
+  }
+
+  h1 {
+    font-size: 2.2em;
+    letter-spacing: 2px;
+  }
+
+  #relogio {
+    font-size: 60px;
+    margin-bottom: 10px;
+  }
+
+  #senha-display {
+    font-size: 160px;
+    font-weight: bold;
+    margin: 20px 0 0 0;
+    transition: transform 0.8s ease, opacity 0.8s ease;
+    opacity: 1;
+  }
+
+  #nome-display {
+    font-size: 50px;
+    font-weight: bold;
+    margin: 10px 0 25px 0;
+    color: #aaff00;
+    transition: transform 0.8s ease, opacity 0.8s ease;
+  }
+
+  #dataInicio {
+    font-size: 28px;
+    margin-bottom: 30px;
+    display: block;
+  }
+
+  .fade-in {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+
+  .fade-out {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  input {
+    font-size: 22px;
+    padding: 10px;
+    text-transform: uppercase;
+    text-align: center;
+    width: 60%;
+    border: 3px solid #CCFF00;
+    background: transparent;
+    color: #CCFF00;
+    border-radius: 10px;
+  }
+
+  .button-group {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 25px 0;
+  }
+
+  button {
+    padding: 15px 25px;
+    font-size: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    background-color: #CCFF00;
+    color: #000;
+    transition: 0.3s;
+  }
+
+  button:hover {
+    background-color: #000;
+    color: #CCFF00;
+    border: 2px solid #CCFF00;
+  }
+
+  #chamar-btn, #aceitar-btn {
+    display: none;
+  }
+
+  #historico {
+    margin-top: 30px;
+  }
+
+  .paciente {
+    cursor: pointer;
+    font-size: 22px;
+    margin: 10px 0;
+  }
+
+  @media print {
+    body {
+      background: white;
+      color: black;
+      font-family: monospace;
+      text-align: left;
+    }
+
+    header, button, input, #historico, #relogio {
+      display: none;
+    }
+
+    #senha-display, #nome-display {
+      text-align: center;
+      color: black;
+    }
+
+    #senha-display { font-size: 90px; }
+    #nome-display { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LOGO</div>
+  <h1>PROGRAMA DE ATENDIMENTO</h1>
+</header>
+
+<div id="relogio"></div>
+
+<h2 id="senha-display">SENHA 000</h2>
+<h3 id="nome-display">PACIENTE</h3>
+<span id="dataInicio">--/--/----</span>
+
+<input type="text" id="nomePaciente" placeholder="NOME DO PACIENTE">
+
+<!-- Grupo 1: Geração e Controle -->
+<div class="button-group">
+  <button id="gerar-btn">GERAR SENHA</button>
+  <button id="nova-btn">NOVA SENHA</button>
+  <button id="excluir-btn">EXCLUIR SENHA</button>
+</div>
+
+<!-- Grupo 2: Chamada -->
+<div class="button-group">
+  <button id="chamar-btn">CHAMAR SENHA</button>
+  <button id="aceitar-btn">SENHA ACEITA</button>
+</div>
+
+<!-- Grupo 3: Impressão -->
+<div class="button-group">
+  <button id="imprimir-btn">IMPRIMIR SENHA</button>
+  <button id="exportar-btn">EXPORTAR PDF</button>
+</div>
+
+<div id="historico">
+  <h3>HISTÓRICO DE PACIENTES</h3>
+  <div id="listaPacientes"></div>
+</div>
+
+<audio id="somAlerta" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  let contadorSenha = 1;
+  let intervaloSom;
+  let pacienteSelecionado = null;
+  const pacientes = [];
+
+  const senhaDisplay = document.getElementById('senha-display');
+  const nomeDisplay = document.getElementById('nome-display');
+  const nomePaciente = document.getElementById('nomePaciente');
+  const listaPacientes = document.getElementById('listaPacientes');
+  const som = document.getElementById('somAlerta');
+  const chamarBtn = document.getElementById('chamar-btn');
+  const aceitarBtn = document.getElementById('aceitar-btn');
+  const novaBtn = document.getElementById('nova-btn');
+  const excluirBtn = document.getElementById('excluir-btn');
+  const dataInicio = document.getElementById('dataInicio');
+
+  document.getElementById('gerar-btn').addEventListener('click', () => {
+    if (nomePaciente.value.trim() === "") return alert("DIGITE O NOME DO PACIENTE!");
+
+    const senha = "SENHA " + contadorSenha.toString().padStart(3, '0');
+    const agora = new Date();
+    const dataStr = agora.toLocaleString('pt-BR');
+
+    senhaDisplay.textContent = senha;
+    nomeDisplay.textContent = nomePaciente.value.toUpperCase();
+    dataInicio.textContent = dataStr;
+
+    const paciente = {
+      senha,
+      nome: nomePaciente.value.toUpperCase(),
+      inicio: dataStr,
+      fim: null
+    };
+    pacientes.push(paciente);
+
+    const div = document.createElement('div');
+    div.textContent = `${senha} - ${paciente.nome} | INÍCIO: ${dataStr}`;
+    div.className = "paciente";
+    div.dataset.senha = senha;
+    div.dataset.nome = paciente.nome;
+    div.dataset.inicio = dataStr;
+    div.addEventListener('click', () => selecionarPaciente(div));
+    listaPacientes.prepend(div);
+
+    contadorSenha++;
+  });
+
+  novaBtn.addEventListener('click', () => {
+    nomePaciente.value = "";
+    senhaDisplay.textContent = "SENHA 000";
+    nomeDisplay.textContent = "PACIENTE";
+    senhaDisplay.classList.remove("fade-in", "fade-out");
+    nomeDisplay.classList.remove("fade-in", "fade-out");
+    chamarBtn.style.display = "none";
+    aceitarBtn.style.display = "none";
+    dataInicio.textContent = "--/--/----";
+  });
+
+  function selecionarPaciente(div) {
+    senhaDisplay.textContent = div.dataset.senha;
+    nomeDisplay.textContent = div.dataset.nome;
+    pacienteSelecionado = div;
+    chamarBtn.style.display = "inline-block";
+  }
+
+  chamarBtn.addEventListener('click', () => {
+    senhaDisplay.classList.remove("fade-out");
+    nomeDisplay.classList.remove("fade-out");
+    void senhaDisplay.offsetWidth;
+    senhaDisplay.classList.add("fade-in");
+    nomeDisplay.classList.add("fade-in");
+    chamarSom(5);
+    aceitarBtn.style.display = "inline-block";
+  });
+
+  aceitarBtn.addEventListener('click', () => {
+    pararSom();
+    senhaDisplay.classList.remove("fade-in");
+    nomeDisplay.classList.remove("fade-in");
+    senhaDisplay.classList.add("fade-out");
+    nomeDisplay.classList.add("fade-out");
+
+    if (pacienteSelecionado) {
+      const agora = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+      pacienteSelecionado.style.background = "rgba(204,255,0,0.2)";
+      pacienteSelecionado.style.border = "2px solid #CCFF00";
+      pacienteSelecionado.style.padding = "5px";
+      pacienteSelecionado.style.borderRadius = "8px";
+      pacienteSelecionado.textContent += ` ✅ ATENDIDO | FIM: ${agora}`;
+      
+      // Atualiza no array de pacientes
+      const p = pacientes.find(p => p.senha === pacienteSelecionado.dataset.senha);
+      if (p) p.fim = agora;
+    }
+
+    setTimeout(() => {
+      senhaDisplay.textContent = "SENHA 000";
+      nomeDisplay.textContent = "PACIENTE";
+      senhaDisplay.classList.remove("fade-out");
+      nomeDisplay.classList.remove("fade-out");
+    }, 800);
+
+    chamarBtn.style.display = "none";
+    aceitarBtn.style.display = "none";
+  });
+
+  excluirBtn.addEventListener('click', () => {
+    if (pacienteSelecionado) {
+      pacientes.splice(pacientes.findIndex(p => p.senha === pacienteSelecionado.dataset.senha), 1);
+      pacienteSelecionado.remove();
+      pacienteSelecionado = null;
+      senhaDisplay.textContent = "SENHA 000";
+      nomeDisplay.textContent = "PACIENTE";
+      dataInicio.textContent = "--/--/----";
+      nomePaciente.value = "";
+      chamarBtn.style.display = "none";
+      aceitarBtn.style.display = "none";
+      alert("SENHA EXCLUÍDA COM SUCESSO!");
+    } else {
+      alert("SELECIONE UM PACIENTE PARA EXCLUIR A SENHA!");
+    }
+  });
+
+  function chamarSom(repeticoes) {
+    let count = 0;
+    pararSom();
+    intervaloSom = setInterval(() => {
+      som.play();
+      count++;
+      if (count >= repeticoes) pararSom();
+    }, 1000);
+  }
+
+  function pararSom() {
+    clearInterval(intervaloSom);
+    som.pause();
+    som.currentTime = 0;
+  }
+
+  document.getElementById('imprimir-btn').addEventListener('click', () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html><head><title>Impressão de Senha</title></head>
+      <body style="font-family: monospace; text-align: center; margin-top: 50px;">
+        <h1>${senhaDisplay.textContent}</h1>
+        <h2>${nomeDisplay.textContent}</h2>
+        <p>${dataInicio.textContent}</p>
+        <script>window.print();<\/script>
+      </body></html>
+    `);
+    printWindow.document.close();
+  });
+
+  document.getElementById('exportar-btn').addEventListener('click', () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFont("courier", "bold");
+    doc.setFontSize(14);
+    doc.text("RELATÓRIO DE ATENDIMENTOS", 60, 20);
+
+    let y = 40;
+    pacientes.forEach(p => {
+      doc.text(`${p.senha} - ${p.nome}`, 10, y);
+      doc.text(`INÍCIO: ${p.inicio}`, 10, y + 6);
+      doc.text(`FIM: ${p.fim || "EM ABERTO"}`, 10, y + 12);
+      y += 22;
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    doc.save("relatorio_atendimentos.pdf");
+  });
+
+  function atualizarRelogio() {
+    const agora = new Date();
+    document.getElementById('relogio').textContent =
+      agora.toLocaleTimeString('pt-BR', { hour12: false });
+  }
+  setInterval(atualizarRelogio, 1000);
+  atualizarRelogio();
+</script>
+
+</body>
+</html>
